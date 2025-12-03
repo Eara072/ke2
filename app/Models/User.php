@@ -13,20 +13,13 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 {
     use Authenticatable, Authorizable, HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var string[]
-     */
     protected $fillable = [
-        'name', 'email',
+        'name',
+        'email',
+        'password',
+        'phone',   // <----- tambah di sini
     ];
 
-    /**
-     * The attributes excluded from the model's JSON form.
-     *
-     * @var string[]
-     */
     protected $hidden = [
         'password',
     ];

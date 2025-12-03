@@ -1,36 +1,39 @@
 <template>
   <div class="container">
-    <h1>📦 Inventory Management</h1>
-    
-    <div v-if="loading" class="loading">Memuat data...</div>
+    <nav class="tabs">
+      <button @click="activeTab = 'inventory'" :class="{ active: activeTab === 'inventory' }">📦 Inventory</button>
+      <button @click="activeTab = 'employee'" :class="{ active: activeTab === 'employee' }">🧑‍💼 Laporan Karyawan</button>
+    </nav>
 
-    <table v-else>
-      <thead>
-        <tr>
-          <th>Nama Barang</th>
-          <th>SKU</th>
-          <th>Min. Stock</th>
-          <th>Stok Saat Ini</th>
-          <th>Aksi</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="product in products" :key="product.id" :class="{ 'danger-row': isLowStock(product) }">
-          <td>{{ product.name }}</td>
-          <td>{{ product.sku }}</td>
-          <td>{{ product.min_stock }}</td>
-          <td>
-            <input type="number" v-model.number="product.quantity" class="qty-input">
-            <span v-if="isLowStock(product)" class="badge-alert">!</span>
-          </td>
-          <td>
-            <button @click="updateStock(product)" :disabled="updating">
-              {{ updating ? '...' : 'Update' }}
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="activeTab === 'inventory'">
+      <h1>Manajemen Stok</h1>
+      <p><i>...Tabel Inventory Anda...</i></p> 
+    </div>
+
+    <div v-if="activeTab === 'employee'" class="activity-box">
+      <h1>📝 Lapor Kegiatan</h1>
+      <p class="subtitle">Lapor setiap 10 menit agar tidak kena SP (Notif WA)!</p>
+
+      <div class="form-group">
+        <label>Nama Karyawan:</label>
+        <select v-model="selectedUser">
+          <option disabled value="">-- Pilih Nama Anda --</option>
+          <option v-for="user in users" :key="user.id" :value="user.id">
+            {{ user.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Apa yang sedang dikerjakan?</label>
+        <textarea v-model="activityText" rows="4" placeholder="Contoh: Sedang packing barang A..."></textarea>
+      </div>
+
+      <button @click="submitActivity" :disabled="loading" class="btn-submit">
+        {{ loading ? 'Mengirim...' : 'Lapor Sekarang' }}
+      </button>
+    </div>
+
   </div>
 </template>
 
@@ -38,83 +41,62 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-// STATE
-const products = ref([]);
+const activeTab = ref('employee'); // Default tab
+const users = ref([]);
+const selectedUser = ref('');
+const activityText = ref('');
 const loading = ref(false);
-const updating = ref(false);
 
-// GANTI URL INI SESUAI PORT LUMEN KAMU (Biasanya localhost:8000)
-const API_URL = 'http://localhost:8000/api/products'; 
+const API_URL = 'http://localhost:8000/api';
 
-// LOGIC: Cek apakah stok kritis
-const isLowStock = (product) => {
-  return product.quantity <= product.min_stock;
+// Ambil data karyawan buat dropdown
+const fetchUsers = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/users`);
+    users.value = res.data;
+  } catch (e) {
+    console.error("Gagal ambil user", e);
+  }
 };
 
-// GET DATA
-const fetchProducts = async () => {
+// Kirim Laporan
+const submitActivity = async () => {
+  if (!selectedUser.value || !activityText.value) {
+    alert("Pilih nama dan isi kegiatan dulu!");
+    return;
+  }
+
   loading.value = true;
   try {
-    const response = await axios.get(API_URL);
-    products.value = response.data;
-  } catch (error) {
-    console.error("Gagal ambil data:", error);
-    alert("Gagal mengambil data. Pastikan Lumen berjalan di port 8000 dan CORS sudah diaktifkan.");
+    await axios.post(`${API_URL}/activities`, {
+      user_id: selectedUser.value,
+      description: activityText.value
+    });
+
+    alert("✅ Laporan diterima! Anda aman dari notifikasi WA untuk 10 menit ke depan.");
+    activityText.value = ''; // Reset form
+  } catch (e) {
+    alert("❌ Gagal lapor: " + e.message);
   } finally {
     loading.value = false;
   }
 };
 
-// UPDATE DATA
-const updateStock = async (product) => {
-  updating.value = true;
-  try {
-    await axios.put(`${API_URL}/${product.id}`, {
-      quantity: product.quantity
-    });
-    
-    alert('✅ Stok berhasil diupdate!');
-    
-    // Cek logic frontend untuk memberi tahu user
-    if (isLowStock(product)) {
-      alert('⚠️ Peringatan: Stok menipis! Notifikasi WhatsApp sedang dikirim oleh Server.');
-    }
-    
-    // Refresh data untuk memastikan sinkronisasi
-    fetchProducts(); 
-  } catch (error) {
-    console.error(error);
-    alert('❌ Gagal update stok via API.');
-  } finally {
-    updating.value = false;
-  }
-};
-
-// JALANKAN SAAT LOAD
 onMounted(() => {
-  fetchProducts();
+  fetchUsers();
 });
 </script>
 
 <style>
-/* CSS Sederhana */
-.container { max-width: 800px; margin: 40px auto; font-family: sans-serif; }
-h1 { text-align: center; color: #333; }
+/* Style Tambahan */
+.tabs { margin-bottom: 20px; display: flex; gap: 10px; justify-content: center; }
+.tabs button { background: #eee; color: #333; }
+.tabs button.active { background: #007bff; color: white; }
 
-table { width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-th { background-color: #f4f4f4; }
-
-.qty-input { width: 60px; padding: 5px; text-align: center; }
-
-button { background: #28a745; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; }
-button:hover { background: #218838; }
-button:disabled { background: #ccc; }
-
-/* Highlight Merah untuk Stok Habis */
-.danger-row { background-color: #ffebee; border-left: 5px solid red; }
-.danger-row input { border: 1px solid red; color: red; font-weight: bold; }
-.badge-alert { color: red; font-weight: bold; margin-left: 5px; }
-
-.loading { text-align: center; margin-top: 20px; color: #666; }
+.activity-box { max-width: 500px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
+.form-group { margin-bottom: 15px; text-align: left; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+.form-group select, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+.subtitle { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+.btn-submit { width: 100%; background: #007bff; }
 </style>

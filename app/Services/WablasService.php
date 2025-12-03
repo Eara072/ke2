@@ -1,4 +1,4 @@
-<?php
+<?php  
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
@@ -17,9 +17,6 @@ class WablasService {
         $message .= "Segera lakukan restock!";
 
         try {
-            // KIRIM REQUEST
-            // 'withoutVerifying()' = Solusi agar XAMPP tidak error SSL
-            // 'asForm()' = Agar format data dikenali Wablas
             $response = Http::withoutVerifying()
                 ->asForm()
                 ->withHeaders([
@@ -29,7 +26,6 @@ class WablasService {
                     'message' => $message,
                 ]);
 
-            // Cek respon server
             $body = $response->body();
             Log::info("Wablas Status: " . $response->status());
             Log::info("Wablas Response: " . $body);
@@ -39,6 +35,31 @@ class WablasService {
         } catch (\Exception $e) {
             Log::error('Wablas Gagal: ' . $e->getMessage());
             return $e->getMessage();
+        }
+    }
+
+    // ================================================================
+    // [BARU] Function Generic untuk kirim pesan bebas
+    // ================================================================
+    public static function sendMessage($targetPhone, $messageText) {
+        $domain = env('WABLAS_DOMAIN');
+        $token  = env('WABLAS_TOKEN');
+
+        try {
+            $response = Http::withoutVerifying()
+                ->asForm()
+                ->withHeaders(['Authorization' => $token])
+                ->post("$domain/api/send-message", [
+                    'phone'   => $targetPhone,
+                    'message' => $messageText,
+                ]);
+
+            Log::info("Wablas Reminder Sent to $targetPhone");
+            return $response->body();
+
+        } catch (\Exception $e) {
+            Log::error('Wablas Reminder Error: ' . $e->getMessage());
+            return false;
         }
     }
 }

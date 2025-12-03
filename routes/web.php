@@ -74,6 +74,8 @@ $router->get('/test-wa', function () {
 $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('/products', 'ProductController@index');
     $router->put('/products/{id}', 'ProductController@updateStock');
+    $router->get('/users', 'ActivityController@getUsers'); // Ambil list nama karyawan
+    $router->post('/activities', 'ActivityController@store'); // Input kegiatan
 });
 
 
