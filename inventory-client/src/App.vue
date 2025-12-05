@@ -1,39 +1,60 @@
 <template>
-  <div class="container">
-    <nav class="tabs">
-      <button @click="activeTab = 'inventory'" :class="{ active: activeTab === 'inventory' }">📦 Inventory</button>
-      <button @click="activeTab = 'employee'" :class="{ active: activeTab === 'employee' }">🧑‍💼 Laporan Karyawan</button>
-    </nav>
-
-    <div v-if="activeTab === 'inventory'">
-      <h1>Manajemen Stok</h1>
-      <p><i>...Tabel Inventory Anda...</i></p> 
-    </div>
-
-    <div v-if="activeTab === 'employee'" class="activity-box">
-      <h1>📝 Lapor Kegiatan</h1>
-      <p class="subtitle">Lapor setiap 10 menit agar tidak kena SP (Notif WA)!</p>
-
-      <div class="form-group">
-        <label>Nama Karyawan:</label>
-        <select v-model="selectedUser">
-          <option disabled value="">-- Pilih Nama Anda --</option>
-          <option v-for="user in users" :key="user.id" :value="user.id">
-            {{ user.name }}
-          </option>
-        </select>
+  <div class="app-container">
+    <div class="card">
+      <div class="header">
+        <h1>🔒 Laporan Karyawan</h1>
+        <p>Silakan input kegiatan & PIN Anda.</p>
       </div>
 
-      <div class="form-group">
-        <label>Apa yang sedang dikerjakan?</label>
-        <textarea v-model="activityText" rows="4" placeholder="Contoh: Sedang packing barang A..."></textarea>
+      <div v-if="loadingData" class="loading">Mengambil data karyawan...</div>
+
+      <div v-else class="form-container">
+        
+        <!-- 1. PILIH NAMA -->
+        <div class="form-group">
+          <label>Nama Karyawan:</label>
+          <select v-model="selectedUser" class="input-field">
+            <option disabled value="">-- Pilih Nama --</option>
+            <option v-for="user in users" :key="user.id" :value="user.id">
+              {{ user.name }} (Shift: {{ user.start_time }} - {{ user.end_time }})
+            </option>
+          </select>
+        </div>
+
+        <!-- 2. INPUT PIN (BARU) -->
+        <div class="form-group">
+          <label>PIN Keamanan:</label>
+          <input 
+            type="password" 
+            v-model="pin" 
+            class="input-field pin-input" 
+            placeholder="Masukkan 6 digit PIN"
+            maxlength="6"
+            inputmode="numeric"
+          >
+        </div>
+
+        <!-- 3. INPUT KEGIATAN -->
+        <div class="form-group">
+          <label>Kegiatan:</label>
+          <textarea 
+            v-model="activityText" 
+            rows="3" 
+            class="input-field"
+            placeholder="Contoh: Sedang packing orderan..."
+          ></textarea>
+        </div>
+
+        <button 
+          @click="submitActivity" 
+          :disabled="submitting || !selectedUser || !activityText || !pin" 
+          class="btn-submit"
+        >
+          {{ submitting ? 'Memverifikasi...' : 'Kirim Laporan' }}
+        </button>
+
       </div>
-
-      <button @click="submitActivity" :disabled="loading" class="btn-submit">
-        {{ loading ? 'Mengirim...' : 'Lapor Sekarang' }}
-      </button>
     </div>
-
   </div>
 </template>
 
@@ -41,44 +62,49 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
-const activeTab = ref('employee'); // Default tab
+const API_URL = 'http://localhost:8000/api'; 
+
 const users = ref([]);
 const selectedUser = ref('');
 const activityText = ref('');
-const loading = ref(false);
+const pin = ref(''); // Variable untuk PIN
+const loadingData = ref(true);
+const submitting = ref(false);
 
-const API_URL = 'http://localhost:8000/api';
-
-// Ambil data karyawan buat dropdown
 const fetchUsers = async () => {
   try {
     const res = await axios.get(`${API_URL}/users`);
     users.value = res.data;
   } catch (e) {
-    console.error("Gagal ambil user", e);
+    alert("Gagal koneksi ke server.");
+  } finally {
+    loadingData.value = false;
   }
 };
 
-// Kirim Laporan
 const submitActivity = async () => {
-  if (!selectedUser.value || !activityText.value) {
-    alert("Pilih nama dan isi kegiatan dulu!");
-    return;
-  }
-
-  loading.value = true;
+  submitting.value = true;
   try {
+    // Kirim data lengkap ke Backend
     await axios.post(`${API_URL}/activities`, {
       user_id: selectedUser.value,
-      description: activityText.value
+      description: activityText.value,
+      pin: pin.value // Kirim PIN juga
     });
 
-    alert("✅ Laporan diterima! Anda aman dari notifikasi WA untuk 10 menit ke depan.");
-    activityText.value = ''; // Reset form
+    alert("✅ Sukses! Laporan diterima.");
+    
+    // Reset Form (Penting biar orang berikutnya gak liat)
+    activityText.value = '';
+    pin.value = ''; 
+    selectedUser.value = '';
+
   } catch (e) {
-    alert("❌ Gagal lapor: " + e.message);
+    // Ambil pesan error dari Backend (Contoh: "PIN Salah!")
+    const msg = e.response?.data?.message || "Terjadi kesalahan sistem";
+    alert(msg);
   } finally {
-    loading.value = false;
+    submitting.value = false;
   }
 };
 
@@ -88,15 +114,18 @@ onMounted(() => {
 </script>
 
 <style>
-/* Style Tambahan */
-.tabs { margin-bottom: 20px; display: flex; gap: 10px; justify-content: center; }
-.tabs button { background: #eee; color: #333; }
-.tabs button.active { background: #007bff; color: white; }
-
-.activity-box { max-width: 500px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
-.form-group { margin-bottom: 15px; text-align: left; }
-.form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-.form-group select, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; }
-.subtitle { color: #666; font-size: 0.9em; margin-bottom: 20px; }
-.btn-submit { width: 100%; background: #007bff; }
+body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; }
+.app-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.card { background: white; width: 100%; max-width: 450px; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.header { text-align: center; margin-bottom: 25px; }
+.header h1 { margin: 0; color: #333; font-size: 24px; }
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; color: #555; }
+.input-field { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+.pin-input { letter-spacing: 5px; font-weight: bold; text-align: center; } /* Biar PIN terlihat keren */
+.input-field:focus { border-color: #1a73e8; outline: none; }
+.btn-submit { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.btn-submit:hover { background: #1557b0; }
+.btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+.loading { text-align: center; color: #888; }
 </style>

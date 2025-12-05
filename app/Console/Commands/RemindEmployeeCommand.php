@@ -9,67 +9,77 @@ use Carbon\Carbon;
 
 class RemindEmployeeCommand extends Command
 {
-    // Nama command untuk dipanggil nanti
     protected $signature = 'remind:employee';
-
-    protected $description = 'Cek karyawan yang belum update kegiatan 10 menit terakhir';
+    protected $description = 'Cek karyawan yang belum update kegiatan (Versi Teroptimasi)';
 
     public function handle()
-{
-    $this->info('--- MULAI PENGECEKAN ---');
+    {
+        $this->info('--- MULAI PENGECEKAN (OPTIMIZED) ---');
+        
+        $now = Carbon::now();
+        $this->info("Waktu Server: " . $now->format('H:i'));
 
-    // 1. Waktu server sekarang
-    $now = Carbon::now();
-    $this->info("Waktu Server (Lumen): " . $now->format('Y-m-d H:i:s'));
+        // OPTIMASI 1: Hanya ambil karyawan yang AKTIF (is_active = 1)
+        // Kita tidak perlu mengecek karyawan yang sudah resign/cuti.
+        $employees = DB::table('users')->where('is_active', true)->get();
 
-    // 2. Ambil semua karyawan
-    $employees = DB::table('users')->get();
+        foreach ($employees as $employee) {
+            
+            // --- LOGIKA 1: CEK JAM KERJA (SHIFT) ---
+            
+            $jamMasuk = Carbon::parse($employee->start_time);
+            $jamPulang = Carbon::parse($employee->end_time);
 
-    foreach ($employees as $employee) {
+            // Jika sekarang diluar jam kerja, SKIP.
+            if ($now->lessThan($jamMasuk) || $now->greaterThan($jamPulang)) {
+                $this->info("Skip {$employee->name}: Diluar jam kerja.");
+                continue; 
+            }
 
-        // 3. Cek aktivitas terakhir
-        $lastActivity = DB::table('activities')
-            ->where('user_id', $employee->id)
-            ->latest('created_at')
-            ->first();
+            // --- LOGIKA 2: CEK AKTIVITAS (TANPA QUERY TABEL ACTIVITIES) ---
 
-        // === A. Jika belum pernah input sama sekali ===
-        if (!$lastActivity) {
-            $this->error("User {$employee->name}: Belum ada aktivitas sama sekali. Kirim WA!");
+            // Ambil waktu terakhir lapor langsung dari tabel users
+            $lastActivityTime = $employee->last_activity_at ? Carbon::parse($employee->last_activity_at) : null;
 
-            $message = "Halo *{$employee->name}*,\n\n";
-            $message .= "System mendeteksi Anda belum menginput kegiatan hari ini.\n";
-            $message .= "Mohon segera update aktivitas Anda.";
+            // KASUS A: Belum pernah lapor sama sekali (Kolom NULL)
+            if (!$lastActivityTime) {
+                
+                // Beri toleransi 10 menit pertama saat baru masuk kerja
+                if ($now->diffInMinutes($jamMasuk) < 10) {
+                    $this->info("User {$employee->name}: Baru absen masuk, aman.");
+                    continue;
+                }
 
-            WablasService::sendMessage($employee->phone, $message);
-            continue;
+                // Jika sudah lewat 10 menit dari jam masuk & belum lapor
+                $this->warn("User {$employee->name}: BELUM ADA DATA! Kirim WA...");
+                WablasService::sendMessage($employee->phone, "Halo {$employee->name}, Anda belum input kegiatan pertama Anda hari ini!");
+                continue;
+                // Simpan bukti pengiriman ke database
+                DB::table('notification_logs')->insert([
+                    'user_id' => $employee->id,
+                    'message' => $msg,
+                    'created_at' => Carbon::now()
+]);
+            }
+
+            // KASUS B: Sudah pernah lapor, cek selisih waktu
+            $diffInMinutes = $lastActivityTime->diffInMinutes($now);
+
+            // Validasi: Pastikan waktu sekarang > waktu lapor (mencegah bug timezone)
+            if ($now->greaterThan($lastActivityTime) && $diffInMinutes >= 1) {
+                
+                $this->warn(" -> ALARM: {$employee->name} telat {$diffInMinutes} menit.");
+                
+                $msg = "Halo *{$employee->name}*, Sistem mendeteksi Anda diam selama *{$diffInMinutes} menit*.\nMohon segera update laporan kegiatan Anda.";
+                
+                $response = WablasService::sendMessage($employee->phone, $msg);
+                $this->info(" -> Status WA: " . $response);
+
+            } else {
+                $this->info("User {$employee->name}: Aman (Update {$diffInMinutes} menit lalu).");
+            }
         }
-
-        // === B. Sudah pernah input → cek selisih menit ===
-        $lastActivityTime = Carbon::parse($lastActivity->created_at);
-        $diffInMinutes = $lastActivityTime->diffInMinutes($now);
-
-        // Debug info
-        $this->info("User: {$employee->name}");
-        $this->info(" - Terakhir Lapor: " . $lastActivityTime->format('H:i:s'));
-        $this->info(" - Selisih Waktu: {$diffInMinutes} menit");
-
-        // === C. Jika lebih dari 10 menit, kirim WA ===
-        if ($now->greaterThan($lastActivityTime) && $diffInMinutes >= 10) {
-            $this->warn(" -> LEBIH DARI 10 MENIT! MENGIRIM WA...");
-
-            $message = "Halo *{$employee->name}*,\n\n";
-            $message .= "⚠️ Anda belum update kegiatan selama {$diffInMinutes} menit.\n";
-            $message .= "Mohon segera input laporan Anda.";
-
-            WablasService::sendMessage($employee->phone, $message);
-        } else {
-            // === D. Masih aman (< 10 menit) ===
-            $this->info(" -> Aman. Baru update {$diffInMinutes} menit lalu.");
-        }
+        
+        $this->info('--- SELESAI ---');
     }
-
-    $this->info('--- SELESAI ---'); 
-    return 0;
-}
 }
