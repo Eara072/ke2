@@ -14,14 +14,20 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     use Authenticatable, Authorizable, HasFactory;
 
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'phone',   // <----- tambah di sini
-        'start_time', // <----- tambah di sini
-        'end_time',   // <----- tambah di sini
+       'name', 
+        'phone', 
+        'start_time', 
+        'end_time',
+        'pin',              // <--- WAJIB ADA
+        'is_active',        // <--- WAJIB ADA
+        'last_activity_at',  // <--- WAJIB ADA
+        'role'              // <--- WAJIB ADA
     ];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+    
     protected $hidden = [
         'password',
     ];

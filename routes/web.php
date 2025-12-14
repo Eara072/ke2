@@ -16,3 +16,18 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/activities', 'ActivityController@store'); 
 
 });
+
+$router->get('/', function () use ($router) {
+    return "API Monitoring Ready";
+});
+
+$router->group(['prefix' => 'api'], function () use ($router) {
+    
+    // PUBLIC (Bisa diakses sebelum login)
+    $router->get('/users', 'ActivityController@getUsers'); // Untuk dropdown di halaman login
+    $router->post('/login', 'AuthController@login');       // Proses Login
+
+    // PROTECTED (Kegiatan)
+    $router->post('/activities', 'ActivityController@store'); 
+     $router->get('/admin/stats', 'AdminController@getDashboardStats');
+});
