@@ -2,48 +2,80 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Activity;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller {
 
-    public function getDashboardStats() {
-        // 1. Ambil semua karyawan aktif (Kecuali si Admin sendiri)
-        // Kita filter role 'employee' agar admin tidak muncul di list absen
-        $employees = User::where('role', 'employee')
-                         ->where('is_active', true)
-                         ->get();
+    public function getDashboardStats(Request $request) {
+        // 1. Ambil Parameter Tanggal (Default: Hari Ini)
+        $startDate = $request->input('start_date', Carbon::today()->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::today()->format('Y-m-d'));
 
-        $today = Carbon::today();
-        $recap = [];
+        // 2. QUERY AKTIVITAS BERDASARKAN RENTANG TANGGAL
+        // Menggunakan whereBetween untuk mengambil data di antara 2 tanggal
+        $activities = Activity::join('users', 'activities.user_id', '=', 'users.id')
+            ->select('activities.*', 'users.name as employee_name')
+            ->whereDate('activities.start_time', '>=', $startDate)
+            ->whereDate('activities.start_time', '<=', $endDate)
+            ->orderBy('activities.start_time', 'desc')
+            ->get();
 
-        foreach ($employees as $emp) {
-            // 2. Hitung jumlah laporan hari ini untuk karyawan tersebut
-            $reportCount = DB::table('activities')
-                ->where('user_id', $emp->id)
-                ->whereDate('created_at', $today)
-                ->count();
+        $detailData = [];
+        $summaryByType = []; 
 
-            // 3. Tentukan Status (Sesuai Logika Pagi & Sore)
-            // - Pagi: Minimal 1x lapor (Check-in)
-            // - Sore: Minimal 2x lapor (Check-in + Check-out)
+        foreach ($activities as $act) {
+            // Hitung Durasi
+            $start = Carbon::parse($act->start_time);
+            $end = Carbon::parse($act->end_time);
+            $durationMinutes = $end->diffInMinutes($start);
             
-            $recap[] = [
-                'id' => $emp->id,
-                'name' => $emp->name,
-                // Ambil jam shift saja (08:00 - 17:00)
-                'shift' => substr($emp->start_time, 0, 5) . ' - ' . substr($emp->end_time, 0, 5),
-                'total_laporan' => $reportCount,
-                'status_pagi' => $reportCount >= 1, // True jika sudah lapor minimal 1x
-                'status_sore' => $reportCount >= 2  // True jika sudah lapor minimal 2x
+            $hours = floor($durationMinutes / 60);
+            $mins = $durationMinutes % 60;
+            $durationString = "{$hours}j {$mins}m";
+
+            // Masukkan ke Detail Table
+            $detailData[] = [
+                'id' => $act->id,
+                'employee' => $act->employee_name,
+                'project' => $act->project_name,
+                'activity' => $act->activity_type,
+                'date' => $start->format('d M Y'), // Tampilkan tanggal juga
+                'start' => $start->format('H:i'),
+                'end' => $end->format('H:i'),
+                'duration_str' => $durationString,
+                'remarks' => $act->remarks
+            ];
+
+            // Rekap Summary
+            if (!isset($summaryByType[$act->activity_type])) {
+                $summaryByType[$act->activity_type] = 0;
+            }
+            $summaryByType[$act->activity_type] += $durationMinutes;
+        }
+
+        // Format Summary
+        $finalSummary = [];
+        foreach ($summaryByType as $type => $totalMinutes) {
+            $h = floor($totalMinutes / 60);
+            $m = $totalMinutes % 60;
+            $finalSummary[] = [
+                'type' => $type,
+                'total_time' => "{$h} Jam {$m} Menit"
             ];
         }
 
-        // Kirim data ke Frontend
+        // Format Label Tanggal untuk Header
+        $dateLabel = ($startDate === $endDate) 
+            ? Carbon::parse($startDate)->format('d M Y') 
+            : Carbon::parse($startDate)->format('d M') . " - " . Carbon::parse($endDate)->format('d M Y');
+
         return response()->json([
-            'date' => $today->format('d M Y'), // Kirim tanggal hari ini (e.g. 08 Dec 2025)
-            'data' => $recap
+            'date_label' => $dateLabel,
+            'summary' => $finalSummary,
+            'details' => $detailData
         ]);
     }
 }
