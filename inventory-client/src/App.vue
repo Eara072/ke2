@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
+
 const API_URL = 'http://localhost:8000/api';
 
 // STATE UMUM
@@ -160,7 +161,7 @@ onMounted(() => {
       
       <!-- LOGIN -->
       <div v-if="!currentUser" class="glass-card login-view" key="login">
-        <div class="brand-logo"><span class="logo-icon">🌿</span><h2>E-Monitor</h2></div>
+        <div class="brand-logo"><span class="logo-icon"></span><h2>Laporan Produksi</h2></div>
         <p class="subtitle" v-if="isMagicLink">Selamat Datang Kembali,</p>
         <p class="subtitle" v-else>Masuk Sistem Monitoring</p>
 
@@ -296,3 +297,4 @@ onMounted(() => {
     </transition>
   </div>
 </template>
+<style src="./assets/style.css"></style>
