@@ -9,53 +9,74 @@ use Carbon\Carbon;
 
 class RemindEmployeeCommand extends Command
 {
-    // Hapus parameter {session}, kita buat simpel
-    protected $signature = 'remind:employee';
-    protected $description = 'Pengingat Harian (1x Sehari)';
+    // Tambah parameter {mode} untuk membedakan Shift Normal / Malam
+    protected $signature = 'remind:employee {mode}'; 
+    protected $description = 'Pengingat Laporan (Mode: normal/night)';
 
     public function handle()
     {
-        $this->info("--- JALANKAN PENGINGAT HARIAN (17:00) ---");
-
-        $employees = DB::table('users')->where('is_active', true)->get();
-        $today = Carbon::today();
+        $mode = $this->argument('mode'); // Ambil mode dari Kernel
         
-        // Ganti dengan IP/Domain Anda untuk Magic Link
         $frontendUrl = "http://localhost:5173"; 
+        
+        // --- TENTUKAN TANGGAL YANG DICEK ---
+        if ($mode == 'night') {
+            // Jika Mode Malam (Dijalankan Pagi), cek data KEMARIN
+            $checkDate = Carbon::yesterday();
+            $dateLabel = "Kemarin (" . $checkDate->format('d M') . ")";
+            $this->info("--- CEK SHIFT MALAM (Target: $dateLabel) ---");
+        } else {
+            // Jika Mode Normal (Dijalankan Sore), cek data HARI INI
+            $checkDate = Carbon::today();
+            $dateLabel = "Hari Ini";
+            $this->info("--- CEK SHIFT NORMAL (Target: $dateLabel) ---");
+        }
+
+        // Ambil Karyawan Aktif
+        $employees = DB::table('users')
+            ->where('is_active', true)
+            ->where('role', 'employee')
+            ->get();
 
         foreach ($employees as $employee) {
             
-            // Cek jumlah laporan hari ini
+            // Query ke Database berdasarkan tanggal $checkDate
             $reportCount = DB::table('activities')
                 ->where('user_id', $employee->id)
-                ->whereDate('created_at', $today)
+                ->whereDate('created_at', $checkDate) // Cek tanggal sesuai mode
                 ->count();
 
-            $this->info("User: {$employee->name} | Total Lapor: {$reportCount}");
+            $this->info("User: {$employee->name} | Laporan $dateLabel: {$reportCount}");
+
+            // --- LOGIKA PENGIRIMAN WA ---
             
-           // Jangan jalan kalau weekend
-           if (Carbon::now()->isWeekend()) {
-
-            $this->info("Hari Libur (Weekend). Skip.");
-
-            return;
-
-        }
-            // LOGIKA: Jika laporan hari ini masih KOSONG (0), kirim WA
             if ($reportCount == 0) {
+                // Hanya kirim pesan ini kalau laporannya kosong
                 $this->warn(" -> Belum lapor! Kirim WA...");
                 
                 $magicLink = "{$frontendUrl}?uid={$employee->id}";
-                
-                $msg = "Halo *{$employee->name}*,\n\n";
-                $msg .= "Sistem mendeteksi Anda belum mengisi *Laporan Project Control* hari ini.\n";
-                $msg .= "Mohon segera isi sebelum pulang kerja.\n\n";
-                $msg .= "👇 *KLIK UNTUK LAPOR:* \n$magicLink";
+                $msg = "";
+
+                if ($mode == 'night') {
+                    // Pesan Khusus Shift Malam (Dikirim Pagi)
+                    $msg = "Selamat Pagi *{$employee->name}*,\n\n";
+                    $msg .= "Sistem mendeteksi Anda belum mengisi laporan untuk Shift Malam **{$dateLabel}**.\n";
+                    $msg .= "Sebelum meninggalkan pabrik/istirahat, mohon isi laporan dulu ya.\n\n";
+                } else {
+                    // Pesan Shift Normal (Dikirim Sore)
+                    $msg = "Halo *{$employee->name}*,\n\n";
+                    $msg .= "Reminder: Anda belum mengisi *Report Produksi* hari ini.\n";
+                    $msg .= "Mohon segera isi laporan sebelum jam pulang.\n\n";
+                }
+
+                $msg .= "👇 *KLIK DISINI:* \n$magicLink";
 
                 WablasService::sendMessage($employee->phone, $msg);
             } else {
-                $this->info(" -> Aman (Sudah lapor).");
+                $this->info(" -> Aman.");
             }
         }
+        
+        $this->info("--- SELESAI ---");
     }
 }

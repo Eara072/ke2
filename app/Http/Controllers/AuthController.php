@@ -1,33 +1,37 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
+use App\Models\User; // Pastikan model User diimport
 
-class AuthController extends Controller {
-
-    // Login Sederhana (Cek Nama & PIN)
-    public function login(Request $request) {
+class AuthController extends Controller
+{
+    public function login(Request $request)
+    {
+        // 1. Validasi diubah: menerima 'username' bukan 'user_id'
         $this->validate($request, [
-            'user_id' => 'required|exists:users,id',
-            'pin'     => 'required|string'
+            'username' => 'required',
+            'pin'      => 'required'
         ]);
 
-        $user = User::find($request->user_id);
+        // 2. Cari user berdasarkan NAMA persis seperti yang diketik
+        $user = User::where('name', $request->username)->first();
 
-        // Cek PIN
-        if ($user->pin !== $request->pin) {
-            return response()->json(['message' => '⛔ PIN Salah! Akses ditolak.'], 401);
+        // 3. Jika nama tidak ada di database
+        if (!$user) {
+            return response()->json(['message' => 'Nama pengguna tidak terdaftar'], 404);
         }
 
-        // Cek Status Aktif
-        if (!$user->is_active) {
-            return response()->json(['message' => '⛔ Akun ini sudah tidak aktif.'], 403);
+        // 4. Jika PIN salah
+        if ($request->pin !== $user->pin) {
+            return response()->json(['message' => 'PIN yang Anda masukkan salah'], 401);
         }
 
+        // 5. Jika sukses
         return response()->json([
-            'message' => 'Login Berhasil',
+            'message' => 'Login berhasil', 
             'user' => $user
-        ]);
+        ], 200);
     }
 }

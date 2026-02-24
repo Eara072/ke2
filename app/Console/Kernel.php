@@ -13,10 +13,25 @@ class Kernel extends ConsoleKernel
 
     protected function schedule(Schedule $schedule)
     {
-        // REVISI: Jalan CUMA 1X SEHARI (Jam 17:00 WIB)
-        // Tujuannya mengingatkan karyawan mengisi laporan sebelum pulang
-        $schedule->command('remind:employee')
-                 ->dailyAt('17:00')
+        // 1. JADWAL NORMAL (SHIFT 1)
+        // Senin-Kamis: Cek jam 15:45
+        $schedule->command('remind:employee normal')
+                 ->days([1, 2, 3, 4]) 
+                 ->at('15:45')
+                 ->timezone('Asia/Jakarta');
+
+        // Jumat: Cek jam 16:15
+        $schedule->command('remind:employee normal')
+                 ->fridays() 
+                 ->at('16:15')
+                 ->timezone('Asia/Jakarta');
+
+        // 2. JADWAL SHIFT MALAM (SHIFT 2)
+        // Jalan setiap Selasa (2) sampai Sabtu (6) jam 07:30 Pagi.
+        // Tujuannya: Mengecek laporan "HARI KEMARIN" yang belum diisi.
+        $schedule->command('remind:employee night')
+                 ->days([2, 3, 4, 5, 6]) 
+                 ->at('07:30')
                  ->timezone('Asia/Jakarta');
     }
 }

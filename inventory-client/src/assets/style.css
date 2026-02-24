@@ -82,14 +82,18 @@ body { margin: 0; font-family: 'Segoe UI', sans-serif; background: linear-gradie
 .btn-change-user { background: none; border: none; color: #dc2626; font-size: 12px; cursor: pointer; text-decoration: underline; }
 
 /* CSS TAMBAHAN UNTUK DASHBOARD ADMIN BARU */
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
-.summary-card { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 12px; text-align: center; }
-.summary-card.empty { background: #f8fafc; border: 1px dashed #cbd5e1; color: #94a3b8; font-style: italic; }
-.sum-label { font-size: 12px; color: #166534; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
-.sum-value { font-size: 18px; font-weight: 800; color: #15803d; }
+.filter-bar { display: flex; gap: 10px; align-items: flex-end; background: #f0fdf4; padding: 15px; border-radius: 12px; border: 1px solid #bbf7d0; margin-bottom: 20px; }
+.filter-group { display: flex; flex-direction: column; flex: 1; }
+.filter-group label { font-size: 12px; font-weight: bold; color: #166534; margin-bottom: 5px; }
+.filter-input { padding: 8px; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 13px; }
+.btn-filter { background: #16a34a; color: white; border: none; padding: 9px 15px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; height: 36px; }
 
-.project-tag { background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-.duration-badge { background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 13px; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.summary-card { background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; text-align: center; }
+.sum-label { font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+.sum-value { font-size: 16px; font-weight: 800; color: #15803d; }
+.project-tag { background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.duration-badge { background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; }
 /* Animasi */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
@@ -110,3 +114,4 @@ body { margin: 0; font-family: 'Segoe UI', sans-serif; background: linear-gradie
 
 .project-tag { background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; }
 .duration-badge { background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; }
+
