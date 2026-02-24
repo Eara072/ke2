@@ -8,7 +8,7 @@ import AdminSettings from './Setting.vue';
 
 const props = defineProps(['user']);
 const emit = defineEmits(['logout']);
-const API_URL = 'http://imperialdramon.infinityfree.me/api';
+const API_URL = 'https://imperialdramon.infinityfree.me/api';
 
 // State untuk mengatur tab yang aktif (default: dashboard)
 const activeTab = ref('dashboard');
