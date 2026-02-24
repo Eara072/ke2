@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://imperialdramon.infinityfree.me/api';
 
 const isSavingUser = ref(false);
 const newUser = ref({

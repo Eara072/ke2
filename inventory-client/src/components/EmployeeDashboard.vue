@@ -4,8 +4,7 @@ import axios from 'axios';
 
 const props = defineProps(['user']);
 const emit = defineEmits(['logout']);
-const API_URL = 'http://localhost:8000/api';
-
+const API_URL = 'http://imperialdramon.infinityfree.me/api';
 const loading = ref(false);
 const form = ref({
   project: '',

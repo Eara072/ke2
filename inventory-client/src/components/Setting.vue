@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps(['user']);
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://imperialdramon.infinityfree.me/api';
 
 const isSaving = ref(false);
 const users = ref([]);

@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const emit = defineEmits(['login-success']);
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://imperialdramon.infinityfree.me/api';
 
 const users = ref([]);
 const loading = ref(false);
