@@ -18,8 +18,9 @@ return [
     | Database Connections
     |--------------------------------------------------------------------------
     |
-    | Pengaturan koneksi database. Pastikan DB_PORT di Environment Variables 
-    | bernilai 11378 untuk Aiven MySQL.
+    | Pengaturan koneksi database. 
+    | Nilai default di bawah disesuaikan langsung dengan kredensial Aiven Anda
+    | agar aplikasi tetap bisa terhubung meskipun .env di server tidak terbaca.
     |
     */
 
@@ -27,18 +28,18 @@ return [
 
         'mysql' => [
             'driver'    => 'mysql',
-            'host'      => env('DB_HOST', '127.0.0.1'),
-            'port'      => env('DB_PORT', '11378'), // Default ke 11378 untuk Aiven
+            'host'      => env('DB_HOST', 'mysql-24bf7e8c-icikiwir32.i.aivencloud.com'),
+            'port'      => env('DB_PORT', '11378'),
             'database'  => env('DB_DATABASE', 'defaultdb'),
             'username'  => env('DB_USERNAME', 'avnadmin'),
-            'password'  => env('DB_PASSWORD', ''),
+            'password'  => env('DB_PASSWORD', 'AVNS_y3_wK-UknhvtUnQ1tyc'),
             'charset'   => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix'    => '',
             'strict'    => false,
             'engine'    => null,
             'options'   => [
-                // Wajib untuk Aiven MySQL SSL
+                // WAJIB: Aiven MySQL memerlukan SSL
                 PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
             ],
         ],
