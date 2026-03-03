@@ -1,17 +1,9 @@
-# Gunakan image PHP 8.2 dengan Apache
-FROM php:8.2-apache
+# Gunakan image PHP 8.2 FPM (Lebih ringan dan stabil untuk Cloud)
+FROM php:8.2-fpm
 
-# 1. FIX MPM CONFLICT: Disable event/worker, enable prefork secara bersih
-RUN a2dismod mpm_event mpm_worker 2>/dev/null || true && \
-    a2enmod mpm_prefork && \
-    # Hapus symlink yang mungkin tersisa
-    rm -f /etc/apache2/mods-enabled/mpm_event.load \
-          /etc/apache2/mods-enabled/mpm_event.conf \
-          /etc/apache2/mods-enabled/mpm_worker.load \
-          /etc/apache2/mods-enabled/mpm_worker.conf
-
-# 2. Instal dependensi sistem
+# 1. Instal Nginx dan dependensi sistem
 RUN apt-get update && apt-get install -y \
+    nginx \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
@@ -21,48 +13,45 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. Instal ekstensi PHP
+# 2. Instal ekstensi PHP untuk MySQL (Aiven)
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# 4. Aktifkan mod_rewrite
-RUN a2enmod rewrite
+# 3. Konfigurasi Nginx untuk Lumen
+# Kita buat file konfigurasi Nginx langsung di sini
+RUN printf "server {\n\
+    listen 80;\n\
+    listen [::]:80;\n\
+    server_name localhost;\n\
+    root /var/www/html/public;\n\
+    index index.php index.html;\n\
+    location / {\n\
+        try_files \$uri \$uri/ /index.php?\$query_string;\n\
+    }\n\
+    location ~ \.php$ {\n\
+        include fastcgi_params;\n\
+        fastcgi_pass 127.0.0.1:9000;\n\
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;\n\
+    }\n\
+}" > /etc/nginx/sites-available/default
 
-# 5. ServerName untuk hilangkan warning
-RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
-
-# 6. Set Document Root ke /public
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
-        /etc/apache2/sites-available/*.conf \
-        /etc/apache2/apache2.conf \
-        /etc/apache2/conf-available/*.conf
-
-# 7. Instal Composer LEBIH AWAL (sebelum COPY semua file)
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# 8. Copy composer files dulu (layer caching lebih efisien)
-COPY composer.json composer.lock /var/www/html/
+# 4. Salin kodingan ke folder kerja
 WORKDIR /var/www/html
-RUN composer install --no-interaction --optimize-autoloader --no-dev
-
-# 9. Baru copy semua file (perubahan kode tidak invalidate layer composer)
 COPY . /var/www/html
 
-# 10. Atur izin akses
-RUN mkdir -p storage/logs \
-             storage/framework/views \
-             storage/framework/cache \
-             storage/framework/sessions \
-             bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+# 5. Atur izin akses folder (Penting untuk Lumen)
+RUN mkdir -p /var/www/html/storage/logs \
+             /var/www/html/storage/framework/views \
+             /var/www/html/bootstrap/cache && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# 11. PORT dinamis Railway — ENV dulu, BARU sed
-ENV PORT=80
-RUN sed -i 's/Listen 80/Listen ${PORT}/g' /etc/apache2/ports.conf && \
-    sed -i 's/<VirtualHost \*:80>/<VirtualHost \*:${PORT}>/g' \
-        /etc/apache2/sites-available/000-default.conf
+# 6. Instal Composer dan dependensi PHP
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN composer install --no-interaction --optimize-autoloader --no-dev
 
+# 7. Expose Port (Railway menggunakan PORT 80 sesuai variabel kita)
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+# 8. Jalankan PHP-FPM dan Nginx secara bersamaan
+# Kita gunakan shell script sederhana untuk menjalankan kedua service
+CMD php-fpm -D && nginx -g "daemon off;"
