@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const props = defineProps(['user']);
 const emit = defineEmits(['logout']);
-const API_URL = 'https://backend1-idluo06v.b4a.run/api';
+const API_URL = 'https://ke2-production.up.railway.app/api';
 const loading = ref(false);
 const form = ref({
   project: '',
