@@ -1,9 +1,16 @@
-# Gunakan image resmi PHP 8.2 + Apache
+# Gunakan image PHP 8.2 dengan Apache
 FROM php:8.2-apache
 
-# -------------------------------------------------
-# 1. Install system dependencies
-# -------------------------------------------------
+# 1. FIX ULTIMATE: Hapus paksa modul MPM yang bentrok
+# Kita tidak hanya mematikan, tapi menghapus file konfigurasinya secara fisik 
+# agar Apache tidak punya pilihan lain selain menggunakan mpm_prefork (wajib untuk PHP).
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.load \
+          /etc/apache2/mods-enabled/mpm_event.conf \
+          /etc/apache2/mods-enabled/mpm_worker.load \
+          /etc/apache2/mods-enabled/mpm_worker.conf && \
+    a2enmod mpm_prefork
+
+# 2. Instal dependensi sistem yang diperlukan
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
@@ -11,59 +18,45 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     git \
-    curl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    curl
 
-# -------------------------------------------------
-# 2. Install PHP extensions
-# -------------------------------------------------
+# 3. Instal ekstensi PHP (pdo_mysql sangat penting untuk Aiven)
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# -------------------------------------------------
-# 3. Enable Apache rewrite module (WAJIB untuk Lumen)
-# -------------------------------------------------
+# 4. Aktifkan mod_rewrite Apache agar routing Lumen jalan
 RUN a2enmod rewrite
 
-# Tambahkan ServerName supaya tidak ada warning
+# Tambahkan ServerName untuk menghilangkan warning di log
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# -------------------------------------------------
-# 4. Ubah DocumentRoot ke folder /public
-# -------------------------------------------------
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+# 5. Ubah Document Root Apache ke folder /public milik Lumen
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/sites-available/000-default.conf
-
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/apache2.conf \
-    /etc/apache2/conf-available/*.conf || true
-
-# -------------------------------------------------
-# 5. Copy project ke container
-# -------------------------------------------------
+# 6. Salin semua file kodingan ke dalam container
 COPY . /var/www/html
 
-# -------------------------------------------------
-# 6. Install Composer
-# -------------------------------------------------
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# 7. Atur izin akses (Permission) folder agar Lumen bisa menulis log/cache
+# Kita buat foldernya dulu agar tidak error jika folder tidak ada di GitHub
+RUN mkdir -p /var/www/html/storage/logs \
+             /var/www/html/storage/framework/views \
+             /var/www/html/bootstrap/cache && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
+# 8. Instal Composer dan jalankan install dependensi
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# -------------------------------------------------
-# 7. Permission untuk Lumen (storage & cache)
-# -------------------------------------------------
-RUN mkdir -p storage/logs \
-             storage/framework/views \
-             bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+# 9. Pengaturan Port Dinamis (Sangat Penting untuk Railway)
+# Kita paksa Apache untuk mendengarkan port yang diberikan oleh Railway lewat variabel $PORT.
+RUN sed -i 's/Listen 80/Listen ${PORT}/g' /etc/apache2/ports.conf && \
+    sed -i 's/<VirtualHost \*:80>/<VirtualHost \*:${PORT}>/g' /etc/apache2/sites-available/000-default.conf
 
-# -------------------------------------------------
-# 8. Expose port (Railway pakai 80 untuk Apache image ini)
-# -------------------------------------------------
+# Default Port jika variabel tidak terbaca
+ENV PORT 80
 EXPOSE 80
 
-# Jalankan Apache
+# Jalankan Apache di foreground
 CMD ["apache2-foreground"]
