@@ -33,7 +33,12 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.
 COPY . /var/www/html
 
 # 7. Atur izin akses (Permission) folder agar Lumen bisa menulis log/cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# FIX: Buat semua folder yang dibutuhkan Lumen agar chown tidak gagal
+RUN mkdir -p /var/www/html/storage/logs \
+             /var/www/html/storage/framework/views \
+             /var/www/html/bootstrap/cache && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # 8. Instal Composer dan jalankan install dependensi
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
