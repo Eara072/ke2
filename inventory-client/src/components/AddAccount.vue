@@ -2,11 +2,7 @@
 import { ref } from 'vue';
 import axios from 'axios';
 
-<<<<<<< HEAD
 const API_URL = 'https://ke2-production.up.railway.app';
-=======
-const API_URL = 'https://backend1-578gyumz.b4a.run/api';
->>>>>>> 8e72ab1de74b9fab8c55edaad155758f7bc3fade
 
 const isSavingUser = ref(false);
 const newUser = ref({
@@ -58,7 +54,7 @@ const submitNewUser = async () => {
         <input type="text" v-model="newUser.name" class="modern-input" placeholder="Ketik nama...">
       </div>
       <div class="form-col">
-        <label class="label-field">No. HP (WhatsApp) <span class="req">*</span></label>
+        <label class="label-field">No. HP (WhatsApps) <span class="req">*</span></label>
         <input type="text" v-model="newUser.phone" class="modern-input" placeholder="Contoh: 08123456789">
       </div>
     </div>
