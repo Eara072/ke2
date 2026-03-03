@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps(['user']);
-const API_URL = 'https://backend1-idluo06v.b4a.run/api';
+const API_URL = 'https://ke2-production.up.railway.app/api';
 
 const isSaving = ref(false);
 const users = ref([]);
