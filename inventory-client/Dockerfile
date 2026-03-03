@@ -1,9 +1,11 @@
 # Gunakan image PHP 8.2 dengan Apache
 FROM php:8.2-apache
 
-# 1. FIX: Matikan mpm_event dan pastikan mpm_prefork yang jalan
-# Ini untuk mencegah error "More than one MPM loaded"
-RUN a2dismod mpm_event || true && a2enmod mpm_prefork
+# 1. FIX EXTREME: Matikan semua MPM lain (event & worker) dan paksa prefork
+# Kita hapus file load-nya langsung agar tidak ada konflik sama sekali
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf && \
+    rm -f /etc/apache2/mods-enabled/mpm_worker.load /etc/apache2/mods-enabled/mpm_worker.conf && \
+    a2enmod mpm_prefork
 
 # 2. Instal dependensi sistem yang diperlukan
 RUN apt-get update && apt-get install -y \
@@ -33,7 +35,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.
 COPY . /var/www/html
 
 # 7. Atur izin akses (Permission) folder agar Lumen bisa menulis log/cache
-# FIX: Buat semua folder yang dibutuhkan Lumen agar chown tidak gagal
+# Kita buat foldernya dulu agar tidak error jika folder tidak ada di GitHub
 RUN mkdir -p /var/www/html/storage/logs \
              /var/www/html/storage/framework/views \
              /var/www/html/bootstrap/cache && \
@@ -44,7 +46,7 @@ RUN mkdir -p /var/www/html/storage/logs \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# 9. Expose port 80 (Standard Railway/Back4App)
+# 9. Expose port 80 (Standard Railway)
 EXPOSE 80
 
 # Jalankan Apache di foreground
