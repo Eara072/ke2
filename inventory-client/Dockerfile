@@ -1,16 +1,9 @@
-# Gunakan image PHP 8.2 dengan Apache
+# Gunakan image resmi PHP 8.2 + Apache
 FROM php:8.2-apache
 
-# 1. FIX ULTIMATE: Cegah konflik "More than one MPM loaded"
-# Kita tidak hanya mematikan lewat perintah, tapi menghapus paksa file load-nya
-# agar tidak ada kemungkinan Apache memuat dua modul sekaligus saat startup.
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.load \
-          /etc/apache2/mods-enabled/mpm_event.conf \
-          /etc/apache2/mods-enabled/mpm_worker.load \
-          /etc/apache2/mods-enabled/mpm_worker.conf && \
-    a2enmod mpm_prefork
-
-# 2. Instal dependensi sistem yang diperlukan
+# -------------------------------------------------
+# 1. Install system dependencies
+# -------------------------------------------------
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
@@ -18,43 +11,59 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     git \
-    curl
+    curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 3. Instal ekstensi PHP (pdo_mysql sangat penting untuk Aiven)
+# -------------------------------------------------
+# 2. Install PHP extensions
+# -------------------------------------------------
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# 4. Aktifkan mod_rewrite Apache agar routing Lumen jalan
+# -------------------------------------------------
+# 3. Enable Apache rewrite module (WAJIB untuk Lumen)
+# -------------------------------------------------
 RUN a2enmod rewrite
 
-# Tambahkan ServerName untuk menghilangkan warning di log
+# Tambahkan ServerName supaya tidak ada warning
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# 5. Ubah Document Root Apache ke folder /public milik Lumen
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# -------------------------------------------------
+# 4. Ubah DocumentRoot ke folder /public
+# -------------------------------------------------
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
-# 6. Salin semua file kodingan ke dalam container
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/sites-available/000-default.conf
+
+RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/apache2.conf \
+    /etc/apache2/conf-available/*.conf || true
+
+# -------------------------------------------------
+# 5. Copy project ke container
+# -------------------------------------------------
 COPY . /var/www/html
 
-# 7. Atur izin akses (Permission) folder agar Lumen bisa menulis log/cache
-RUN mkdir -p /var/www/html/storage/logs \
-             /var/www/html/storage/framework/views \
-             /var/www/html/bootstrap/cache && \
-    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# 8. Instal Composer dan jalankan install dependensi
+# -------------------------------------------------
+# 6. Install Composer
+# -------------------------------------------------
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# 9. Penyesuaian Port untuk Railway
-# Railway menggunakan variabel environment PORT, kita pastikan Apache mendengarkan port tersebut.
-RUN sed -i 's/Listen 80/Listen ${PORT}/g' /etc/apache2/ports.conf && \
-    sed -i 's/<VirtualHost \*:80>/<VirtualHost \*:${PORT}>/g' /etc/apache2/sites-available/000-default.conf
+# -------------------------------------------------
+# 7. Permission untuk Lumen (storage & cache)
+# -------------------------------------------------
+RUN mkdir -p storage/logs \
+             storage/framework/views \
+             bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
 
-# Expose port (biasanya diabaikan Railway karena pakai variabel PORT, tapi tetap bagus untuk dokumentasi)
+# -------------------------------------------------
+# 8. Expose port (Railway pakai 80 untuk Apache image ini)
+# -------------------------------------------------
 EXPOSE 80
 
-# Jalankan Apache di foreground
+# Jalankan Apache
 CMD ["apache2-foreground"]
