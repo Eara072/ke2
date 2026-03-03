@@ -17,10 +17,10 @@ RUN apt-get update && apt-get install -y \
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
 # 3. Konfigurasi Nginx untuk Lumen
-# Kita buat file konfigurasi Nginx langsung di sini
+# Kita gunakan placeholder PORT agar bisa diganti secara dinamis saat start
 RUN printf "server {\n\
-    listen 80;\n\
-    listen [::]:80;\n\
+    listen %s;\n\
+    listen [::]:%s;\n\
     server_name localhost;\n\
     root /var/www/html/public;\n\
     index index.php index.html;\n\
@@ -32,7 +32,7 @@ RUN printf "server {\n\
         fastcgi_pass 127.0.0.1:9000;\n\
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;\n\
     }\n\
-}" > /etc/nginx/sites-available/default
+}" "80" "80" > /etc/nginx/sites-available/default
 
 # 4. Salin kodingan ke folder kerja
 WORKDIR /var/www/html
@@ -49,9 +49,9 @@ RUN mkdir -p /var/www/html/storage/logs \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# 7. Expose Port (Railway menggunakan PORT 80 sesuai variabel kita)
+# 7. Expose Port
 EXPOSE 80
 
 # 8. Jalankan PHP-FPM dan Nginx secara bersamaan
-# Kita gunakan shell script sederhana untuk menjalankan kedua service
-CMD php-fpm -D && nginx -g "daemon off;"
+# Kita gunakan script shell untuk memastikan Nginx memakai port dari Railway ($PORT)
+CMD sh -c "sed -i 's/listen 80;/listen '\"${PORT:-80}\"';/g' /etc/nginx/sites-available/default && php-fpm -D && nginx -g 'daemon off;'"
