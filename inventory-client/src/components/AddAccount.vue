@@ -2,7 +2,11 @@
 import { ref } from 'vue';
 import axios from 'axios';
 
+<<<<<<< HEAD
 const API_URL = 'https://ke2-production.up.railway.app';
+=======
+const API_URL = 'https://backend1-578gyumz.b4a.run/api';
+>>>>>>> 8e72ab1de74b9fab8c55edaad155758f7bc3fade
 
 const isSavingUser = ref(false);
 const newUser = ref({

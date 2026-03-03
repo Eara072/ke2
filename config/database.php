@@ -32,7 +32,11 @@ return [
             'port'      => env('DB_PORT', '11378'),
             'database'  => env('DB_DATABASE', 'defaultdb'),
             'username'  => env('DB_USERNAME', 'avnadmin'),
+<<<<<<< HEAD
             'password'  => env('DB_PASSWORD'),
+=======
+            'password'  => env('DB_PASSWORD', 'AVNS_y3_wK-UknhvtUnQ1tyc'),
+>>>>>>> 8e72ab1de74b9fab8c55edaad155758f7bc3fade
             'charset'   => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix'    => '',
