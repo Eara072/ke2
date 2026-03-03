@@ -1,7 +1,11 @@
-# Gunakan image PHP dengan Apache
+# Gunakan image PHP 8.2 dengan Apache
 FROM php:8.2-apache
 
-# Instal ekstensi yang dibutuhkan (terutama untuk MySQL)
+# 1. FIX: Matikan mpm_event dan pastikan mpm_prefork yang jalan
+# Ini untuk mencegah error "More than one MPM loaded"
+RUN a2dismod mpm_event || true && a2enmod mpm_prefork
+
+# 2. Instal dependensi sistem yang diperlukan
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
@@ -11,25 +15,34 @@ RUN apt-get update && apt-get install -y \
     git \
     curl
 
+# 3. Instal ekstensi PHP (pdo_mysql sangat penting untuk Aiven)
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Aktifkan mod_rewrite Apache (PENTING untuk routing Lumen)
+# 4. Aktifkan mod_rewrite Apache agar routing Lumen jalan
 RUN a2enmod rewrite
 
-# Atur Document Root ke folder public Lumen
+# Tambahkan ServerName untuk menghilangkan warning di log
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# 5. Ubah Document Root Apache ke folder /public milik Lumen
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Copy kodingan ke dalam container
+# 6. Salin semua file kodingan ke dalam container
 COPY . /var/www/html
 
-# Set permission folder storage (Lumen butuh akses tulis)
-RUN chown -R www-data:www-data /var/www/html/storage
+# 7. Atur izin akses (Permission) folder agar Lumen bisa menulis log/cache
+# FIX: Buat folder jika belum ada agar perintah chown tidak error
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Instal dependency via composer
+# 8. Instal Composer dan jalankan install dependensi
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-RUN composer install --no-interaction --optimize-autoloader
+RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# Expose port 80
+# 9. Expose port 80 (Standard Railway/Back4App)
 EXPOSE 80
+
+# Jalankan Apache di foreground
+CMD ["apache2-foreground"]
